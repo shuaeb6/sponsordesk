@@ -1,0 +1,22 @@
+services:
+  console:
+    build:
+      context: .
+      dockerfile: docker/console.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      SYNTH_SEED: ${SYNTH_SEED:-42}
+    restart: unless-stopped
+
+  seed:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: docker/console.Dockerfile
+    command: ["sponsordesk-synth", "generate", "--out", "/data", "--seed", "${SYNTH_SEED:-42}"]
+    volumes:
+      - desk-data:/data
+
+volumes:
+  desk-data:

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SponsorDesk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">SD</div>
+      <div>
+        <div class="brand-name">SponsorDesk</div>
+        <div class="brand-sub">Plan sponsor service desk · human-approved triage</div>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="reviewer">
+      <label for="reviewer">Reviewer</label>
+      <input id="reviewer" maxlength="60" autocomplete="off">
+      <button class="ghost" id="quality-btn">Quality report</button>
+    </div>
+  </header>
+
+  <div class="notice">All sponsors, people, and identifiers are fictional. SSNs use the never-issued 9xx range.</div>
+
+  <main class="layout">
+    <aside class="inbox">
+      <div class="inbox-head">
+        <input id="search" type="search" placeholder="Search tickets" aria-label="Search tickets">
+        <div class="chips" id="filters" role="tablist">
+          <button data-status="" class="chip active">All</button>
+          <button data-status="new" class="chip">New</button>
+          <button data-status="pending_approval" class="chip">Awaiting approval</button>
+          <button data-status="routed" class="chip">Routed</button>
+          <button data-status="resolved" class="chip">Resolved</button>
+          <button data-status="closed" class="chip">Closed</button>
+        </div>
+      </div>
+      <ul class="ticket-list" id="ticket-list" aria-label="Tickets"></ul>
+    </aside>
+
+    <section class="detail" id="detail">
+      <div class="empty">
+        <div class="empty-title">Select a ticket</div>
+        <p>Run triage to redact PII, classify the request, check the plan and payroll records, and draft a reply. Nothing happens until a reviewer approves it.</p>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="quality">
+    <div class="dialog-head">
+      <h2>Quality report</h2>
+      <button class="ghost" id="quality-close" aria-label="Close">✕</button>
+    </div>
+    <div id="quality-body"></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js" type="module"></script>
+</body>
+</html>

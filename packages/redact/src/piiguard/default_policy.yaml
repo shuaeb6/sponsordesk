@@ -1,0 +1,40 @@
+# Which data classes may reach which destination, and in what form.
+#   tokenize - replace with a stable token such as [SSN_1]; original kept in the vault
+#   mask     - keep only the last four characters, e.g. ***-**-1234
+#   allow    - pass through unchanged
+version: 1
+default_action: tokenize
+
+destinations:
+  llm:
+    ssn: tokenize
+    ssn_last4: tokenize
+    account_number: tokenize
+    ein: tokenize
+    dob: tokenize
+    balance: tokenize
+    person_name: tokenize
+    email: tokenize
+    phone: tokenize
+
+  audit_log:
+    ssn: tokenize
+    ssn_last4: tokenize
+    account_number: tokenize
+    ein: tokenize
+    dob: tokenize
+    balance: tokenize
+    person_name: tokenize
+    email: tokenize
+    phone: tokenize
+
+  human_reviewer:
+    ssn: mask
+    ssn_last4: allow
+    account_number: mask
+    ein: mask
+    dob: allow
+    balance: allow
+    person_name: allow
+    email: allow
+    phone: allow

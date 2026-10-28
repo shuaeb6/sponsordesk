@@ -1,0 +1,13 @@
+.git
+.venv
+**/__pycache__
+**/.pytest_cache
+.mypy_cache
+.ruff_cache
+data/generated
+artifacts
+node_modules
+web/node_modules
+.env
+.env.*
+!.env.example
