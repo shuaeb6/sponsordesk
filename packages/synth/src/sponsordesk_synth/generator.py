@@ -72,13 +72,20 @@ def generate(
         for s in sponsor_list
     }
     book: PayrollBook = build_payroll_book(
-        rng, sponsor_list, plans, people, loans, ids,
-        window_start=date(as_of.year, 7, 1), as_of=as_of,
+        rng,
+        sponsor_list,
+        plans,
+        people,
+        loans,
+        ids,
+        window_start=date(as_of.year, 7, 1),
+        as_of=as_of,
     )
     from sponsordesk_synth.payroll import ErrorInjector
 
-    world = World(sponsor_list, plans, people, loans, book,
-                  ErrorInjector(rng, people, loans, ids), as_of)
+    world = World(
+        sponsor_list, plans, people, loans, book, ErrorInjector(rng, people, loans, ids), as_of
+    )
     tickets, labels = TicketWriter(rng, world).build(mix or TICKET_MIX)
 
     return Dataset(
@@ -98,10 +105,14 @@ def generate(
 
 
 def _dump(records: list[Any]) -> str:
-    return json.dumps(
-        [r.model_dump(mode="json") if isinstance(r, BaseModel) else r for r in records],
-        indent=2, sort_keys=True,
-    ) + "\n"
+    return (
+        json.dumps(
+            [r.model_dump(mode="json") if isinstance(r, BaseModel) else r for r in records],
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
 
 
 def _jsonl(records: list[BaseModel]) -> str:

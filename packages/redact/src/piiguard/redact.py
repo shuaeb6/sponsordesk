@@ -39,8 +39,9 @@ class Redactor:
         self.policy = policy or Policy.load()
         self.detector = Detector(known_names)
 
-    def redact(self, text: str, destination: str = "llm",
-               vault: dict[str, str] | None = None) -> RedactionResult:
+    def redact(
+        self, text: str, destination: str = "llm", vault: dict[str, str] | None = None
+    ) -> RedactionResult:
         """Redact ``text`` for ``destination``.
 
         Passing a shared ``vault`` keeps tokens stable across several fields of the
@@ -52,7 +53,7 @@ class Redactor:
         out: list[str] = []
         cursor = 0
         for d in detections:
-            out.append(text[cursor:d.start])
+            out.append(text[cursor : d.start])
             action = self.policy.action(destination, d.kind)
             if action is Action.ALLOW:
                 out.append(d.value)

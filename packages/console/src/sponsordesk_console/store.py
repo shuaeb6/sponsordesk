@@ -13,12 +13,6 @@ from typing import Any
 log = logging.getLogger("sponsordesk.audit")
 
 
-class GuardViolation(Exception):
-    def __init__(self, reasons: list[str]) -> None:
-        super().__init__("; ".join(reasons))
-        self.reasons = reasons
-
-
 @dataclass
 class CloseCheck:
     allowed: bool
@@ -74,17 +68,23 @@ class Store:
                 (self._now(), ticket_id, actor, event, payload),
             )
             self._db.commit()
-        log.info(json.dumps({"event": event, "ticket_id": ticket_id, "actor": actor,
-                             "detail": detail}, default=str))
+        log.info(
+            json.dumps(
+                {"event": event, "ticket_id": ticket_id, "actor": actor, "detail": detail},
+                default=str,
+            )
+        )
 
     def status(self, ticket_id: str) -> str:
-        row = self._db.execute("SELECT status FROM workflow WHERE ticket_id = ?",
-                               (ticket_id,)).fetchone()
+        row = self._db.execute(
+            "SELECT status FROM workflow WHERE ticket_id = ?", (ticket_id,)
+        ).fetchone()
         return str(row["status"]) if row else "new"
 
     def state(self, ticket_id: str) -> dict[str, Any]:
-        row = self._db.execute("SELECT * FROM workflow WHERE ticket_id = ?",
-                               (ticket_id,)).fetchone()
+        row = self._db.execute(
+            "SELECT * FROM workflow WHERE ticket_id = ?", (ticket_id,)
+        ).fetchone()
         if not row:
             return {"status": "new", "proposal": None, "decision": None}
         return {
@@ -97,8 +97,14 @@ class Store:
         rows = self._db.execute("SELECT ticket_id, status FROM workflow").fetchall()
         return {r["ticket_id"]: r["status"] for r in rows}
 
-    def set(self, ticket_id: str, status: str, *, proposal: dict[str, Any] | None = None,
-            decision: dict[str, Any] | None = None) -> None:
+    def set(
+        self,
+        ticket_id: str,
+        status: str,
+        *,
+        proposal: dict[str, Any] | None = None,
+        decision: dict[str, Any] | None = None,
+    ) -> None:
         current = self.state(ticket_id)
         with self._lock:
             self._db.execute(
@@ -106,10 +112,13 @@ class Store:
                 "VALUES (?, ?, ?, ?, ?) ON CONFLICT(ticket_id) DO UPDATE SET "
                 "status = excluded.status, proposal = excluded.proposal, "
                 "decision = excluded.decision, updated_at = excluded.updated_at",
-                (ticket_id, status,
-                 json.dumps(proposal if proposal is not None else current["proposal"]),
-                 json.dumps(decision if decision is not None else current["decision"]),
-                 self._now()),
+                (
+                    ticket_id,
+                    status,
+                    json.dumps(proposal if proposal is not None else current["proposal"]),
+                    json.dumps(decision if decision is not None else current["decision"]),
+                    self._now(),
+                ),
             )
             self._db.commit()
 
@@ -124,6 +133,5 @@ class Store:
         return [{**dict(r), "detail": json.loads(r["detail"])} for r in rows]
 
     def counts(self) -> dict[str, int]:
-        rows = self._db.execute(
-            "SELECT event, COUNT(*) AS n FROM audit GROUP BY event").fetchall()
+        rows = self._db.execute("SELECT event, COUNT(*) AS n FROM audit GROUP BY event").fetchall()
         return {r["event"]: int(r["n"]) for r in rows}

@@ -35,8 +35,10 @@ def test_unresolved_ticket_cannot_close(client: TestClient) -> None:
     tid = "TKT-100010"
     client.post(f"/api/tickets/{tid}/triage")
     client.post(f"/api/tickets/{tid}/decision", json={"action": "approve", "reviewer": "qa"})
-    r = client.post(f"/api/tickets/{tid}/close",
-                    json={"reviewer": "qa", "confirmed": [], "note": "done done done"})
+    r = client.post(
+        f"/api/tickets/{tid}/close",
+        json={"reviewer": "qa", "confirmed": [], "note": "done done done"},
+    )
     assert r.status_code == 409
     events = [e["event"] for e in client.get(f"/api/audit?ticket_id={tid}").json()]
     assert "close_blocked" in events
@@ -48,19 +50,23 @@ def test_full_lifecycle_closes_only_with_all_criteria(client: TestClient) -> Non
     client.post(f"/api/tickets/{tid}/decision", json={"action": "approve", "reviewer": "qa"})
     client.post(f"/api/tickets/{tid}/resolve", json={"reviewer": "qa"})
     criteria = proposal["resolution_criteria"]
-    partial = client.post(f"/api/tickets/{tid}/close",
-                          json={"reviewer": "qa", "confirmed": criteria[:-1],
-                                "note": "fixed and confirmed"})
+    partial = client.post(
+        f"/api/tickets/{tid}/close",
+        json={"reviewer": "qa", "confirmed": criteria[:-1], "note": "fixed and confirmed"},
+    )
     assert partial.status_code == 409
-    ok = client.post(f"/api/tickets/{tid}/close",
-                     json={"reviewer": "qa", "confirmed": criteria, "note": "fixed and confirmed"})
+    ok = client.post(
+        f"/api/tickets/{tid}/close",
+        json={"reviewer": "qa", "confirmed": criteria, "note": "fixed and confirmed"},
+    )
     assert ok.status_code == 200
     assert ok.json()["status"] == "closed"
 
 
 def test_decision_requires_pending_proposal(client: TestClient) -> None:
-    r = client.post("/api/tickets/TKT-100030/decision",
-                    json={"action": "approve", "reviewer": "qa"})
+    r = client.post(
+        "/api/tickets/TKT-100030/decision", json={"action": "approve", "reviewer": "qa"}
+    )
     assert r.status_code == 409
 
 

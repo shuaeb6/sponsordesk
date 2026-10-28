@@ -54,14 +54,22 @@ RESOLUTION_CRITERIA: dict[CallType, list[str]] = {
         "Missing contributions located or funded",
         "Contributions posted to participant accounts",
     ],
-    CallType.ENROLLMENT_ELIGIBILITY: ["Eligibility confirmed against plan rules",
-                                      "Enrollment status updated or explained"],
-    CallType.DEFERRAL_CHANGE: ["Election on file matches requested rate",
-                               "Payroll deduction confirmed on next file"],
-    CallType.LOAN_SERVICING: ["Loan status confirmed with Loan Servicing",
-                              "Repayment schedule current or explained"],
-    CallType.DISTRIBUTION_REQUEST: ["Distribution paperwork sent to participant",
-                                    "No investment advice given"],
+    CallType.ENROLLMENT_ELIGIBILITY: [
+        "Eligibility confirmed against plan rules",
+        "Enrollment status updated or explained",
+    ],
+    CallType.DEFERRAL_CHANGE: [
+        "Election on file matches requested rate",
+        "Payroll deduction confirmed on next file",
+    ],
+    CallType.LOAN_SERVICING: [
+        "Loan status confirmed with Loan Servicing",
+        "Repayment schedule current or explained",
+    ],
+    CallType.DISTRIBUTION_REQUEST: [
+        "Distribution paperwork sent to participant",
+        "No investment advice given",
+    ],
     CallType.COMPLIANCE_TESTING: ["Testing question answered by Compliance"],
     CallType.PORTAL_ACCESS: ["Identity verified out of band", "Access change completed"],
 }
@@ -137,36 +145,61 @@ class Engine:
     # --- context ---------------------------------------------------------------------
 
     def _recent_files(self, sponsor_id: str, t: Ticket) -> list[PayrollFile]:
-        files = [f for f in self.files_by_sponsor.get(sponsor_id, [])
-                 if f.received_at <= t.created_at
-                 and f.received_at >= t.created_at - timedelta(days=75)]
+        files = [
+            f
+            for f in self.files_by_sponsor.get(sponsor_id, [])
+            if f.received_at <= t.created_at and f.received_at >= t.created_at - timedelta(days=75)
+        ]
         return sorted(files, key=lambda f: f.pay_date, reverse=True)
 
     def _infer_cause(
-        self, call_type: CallType, t: Ticket, plan: PlanRecord, files: list[PayrollFile],
+        self,
+        call_type: CallType,
+        t: Ticket,
+        plan: PlanRecord,
+        files: list[PayrollFile],
         findings: list[Finding],
     ) -> RootCause | None:
         text = f"{t.subject} {t.body}".lower()
         rejected = [f for f in files if f.status is PayrollFileStatus.REJECTED]
         warned = [f for f in files if f.status is PayrollFileStatus.ACCEPTED_WITH_WARNINGS]
         unfunded = [f for f in files if f.funding_status is FundingStatus.NOT_RECEIVED]
-        missing = [e for e in self.data.expected_payroll
-                   if e.sponsor_id == t.sponsor_id and e.file_id is None
-                   and e.pay_date <= t.created_at.date()]
+        missing = [
+            e
+            for e in self.data.expected_payroll
+            if e.sponsor_id == t.sponsor_id
+            and e.file_id is None
+            and e.pay_date <= t.created_at.date()
+        ]
 
         for f in rejected[:2]:
-            findings.append(Finding(f"{f.filename} rejected",
-                                    "; ".join(f.validation_messages[:3]), "critical"))
+            findings.append(
+                Finding(f"{f.filename} rejected", "; ".join(f.validation_messages[:3]), "critical")
+            )
         for f in warned[:2]:
-            findings.append(Finding(f"{f.filename} accepted with warnings",
-                                    "; ".join(f.validation_messages[:3]), "warn"))
+            findings.append(
+                Finding(
+                    f"{f.filename} accepted with warnings",
+                    "; ".join(f.validation_messages[:3]),
+                    "warn",
+                )
+            )
         for f in unfunded[:1]:
-            findings.append(Finding("Funding not received",
-                                    f"{f.filename} accepted; ACH funding not received", "warn"))
+            findings.append(
+                Finding(
+                    "Funding not received",
+                    f"{f.filename} accepted; ACH funding not received",
+                    "warn",
+                )
+            )
         for e in missing[:1]:
-            findings.append(Finding("Payroll file not received",
-                                    f"No file on record for pay date {e.pay_date:%m/%d/%Y}",
-                                    "critical"))
+            findings.append(
+                Finding(
+                    "Payroll file not received",
+                    f"No file on record for pay date {e.pay_date:%m/%d/%Y}",
+                    "critical",
+                )
+            )
 
         if call_type is CallType.PAYROLL_FILE_ERROR:
             if rejected:
@@ -174,8 +207,12 @@ class Engine:
             return RootCause.PAYROLL_FILE_WARNINGS if warned else None
         if call_type is CallType.MISSED_CONTRIBUTION:
             if "match" in text and plan.match_true_up:
-                findings.append(Finding("Plan has annual match true-up",
-                                        "Match shortfall is restored after plan year end"))
+                findings.append(
+                    Finding(
+                        "Plan has annual match true-up",
+                        "Match shortfall is restored after plan year end",
+                    )
+                )
                 return RootCause.MATCH_TRUE_UP_TIMING
             if unfunded:
                 return RootCause.FUNDING_NOT_RECEIVED
@@ -193,17 +230,24 @@ class Engine:
             if any(any("loan repayments" in m for m in f.validation_messages) for f in warned):
                 return RootCause.LOAN_REPAYMENT_MISSING_IN_PAYROLL
             if re.search(r"won't let|blocked|second loan", text):
-                findings.append(Finding("Loan limit",
-                                        f"Plan allows {plan.loans.max_outstanding} outstanding "
-                                        "loan(s)"))
+                findings.append(
+                    Finding(
+                        "Loan limit",
+                        f"Plan allows {plan.loans.max_outstanding} outstanding loan(s)",
+                    )
+                )
                 return RootCause.LOAN_LIMIT_REACHED
             return RootCause.LOAN_GENERAL_INQUIRY
         if call_type is CallType.ENROLLMENT_ELIGIBILITY:
             elig = plan.eligibility
-            findings.append(Finding("Eligibility rules",
-                                    f"Age {elig.min_age}, {elig.service_months} months service, "
-                                    f"{elig.entry.value} entry; auto-enroll "
-                                    f"{'on' if plan.auto_enrollment.enabled else 'off'}"))
+            findings.append(
+                Finding(
+                    "Eligibility rules",
+                    f"Age {elig.min_age}, {elig.service_months} months service, "
+                    f"{elig.entry.value} entry; auto-enroll "
+                    f"{'on' if plan.auto_enrollment.enabled else 'off'}",
+                )
+            )
             if plan.auto_enrollment.enabled and "auto" in text:
                 return RootCause.AUTO_ENROLL_NOT_APPLIED
             return RootCause.NOT_YET_ELIGIBLE
@@ -224,22 +268,33 @@ class Engine:
         call_type = CallType(prediction.label)
 
         findings: list[Finding] = [
-            Finding("Plan", f"{plan.plan_name} · {plan.plan_type.value} · "
-                            f"{sponsor.payroll_frequency.value} payroll via "
-                            f"{sponsor.payroll_provider}"),
+            Finding(
+                "Plan",
+                f"{plan.plan_name} · {plan.plan_type.value} · "
+                f"{sponsor.payroll_frequency.value} payroll via "
+                f"{sponsor.payroll_provider}",
+            ),
         ]
         files = self._recent_files(t.sponsor_id, t)
         cause = self._infer_cause(call_type, t, plan, files, findings)
         escalation = bool(ESCALATION_RE.search(t.body))
         advice = bool(ADVICE_RE.search(t.body))
         if escalation:
-            findings.append(Finding("Escalation language",
-                                    "Sponsor signals dissatisfaction or legal involvement",
-                                    "critical"))
+            findings.append(
+                Finding(
+                    "Escalation language",
+                    "Sponsor signals dissatisfaction or legal involvement",
+                    "critical",
+                )
+            )
         if advice:
-            findings.append(Finding("Advice request",
-                                    "Ticket asks for investment or distribution advice; reply "
-                                    "must not provide it", "warn"))
+            findings.append(
+                Finding(
+                    "Advice request",
+                    "Ticket asks for investment or distribution advice; reply must not provide it",
+                    "warn",
+                )
+            )
         team = route(call_type, cause, escalation=escalation)
         reason = _reason(call_type, cause, team, escalation)
         draft = _draft(call_type, cause, files, plan, escalation, advice)
@@ -268,8 +323,10 @@ def _reason(call_type: CallType, cause: RootCause | None, team: Team, escalation
     if escalation:
         return "Escalation language detected; relationship management owns the response."
     if cause is not None and team.value != _default(call_type):
-        return (f"Classified as {call_type.value.replace('_', ' ')}, but records show "
-                f"{cause.value.replace('_', ' ')}, which {TEAM_LABELS[team]} resolves.")
+        return (
+            f"Classified as {call_type.value.replace('_', ' ')}, but records show "
+            f"{cause.value.replace('_', ' ')}, which {TEAM_LABELS[team]} resolves."
+        )
     readable = cause.value.replace("_", " ") if cause else "no specific cause found"
     return f"{call_type.value.replace('_', ' ').capitalize()}: {readable}."
 
@@ -280,69 +337,97 @@ def _default(call_type: CallType) -> str:
     return DEFAULT_TEAM[call_type].value
 
 
-def _draft(call_type: CallType, cause: RootCause | None, files: list[PayrollFile],
-           plan: PlanRecord, escalation: bool, advice: bool) -> str:
+def _draft(
+    call_type: CallType,
+    cause: RootCause | None,
+    files: list[PayrollFile],
+    plan: PlanRecord,
+    escalation: bool,
+    advice: bool,
+) -> str:
     rejected = next((f for f in files if f.status is PayrollFileStatus.REJECTED), None)
     lines = ["Hello,", "", "Thank you for reaching out."]
     if escalation:
-        lines.append("I'm sorry for the frustration this has caused. A senior member of our "
-                     "team is now handling this personally and will contact you today.")
+        lines.append(
+            "I'm sorry for the frustration this has caused. A senior member of our "
+            "team is now handling this personally and will contact you today."
+        )
     body = {
         RootCause.PAYROLL_FILE_REJECTED: (
             f"We reviewed {rejected.filename if rejected else 'your recent file'}. It was not "
             "processed because some rows did not pass validation"
             + (f": {'; '.join(rejected.validation_messages[:3])}." if rejected else ".")
             + " Once those rows are corrected, please upload the file again and we will "
-              "process it the same day."),
+            "process it the same day."
+        ),
         RootCause.PAYROLL_FILE_WARNINGS: (
             "Your file was processed. The warnings mean a few amounts look different from what "
             "we expected. Our payroll team is checking them and will tell you if anything "
-            "needs to change."),
+            "needs to change."
+        ),
         RootCause.PAYROLL_FILE_NOT_RECEIVED: (
             "We don't have a contribution file on record for that pay date. Please upload it "
-            "when you can. Contributions will post once it is processed."),
+            "when you can. Contributions will post once it is processed."
+        ),
         RootCause.FUNDING_NOT_RECEIVED: (
             "Your file was accepted, but we have not yet received the money for it. Please "
             "check with your bank or payroll provider that the payment was sent. Contributions "
-            "will be invested as soon as it arrives."),
+            "will be invested as soon as it arrives."
+        ),
         RootCause.MATCH_TRUE_UP_TIMING: (
             "Your plan includes an annual match true-up. Employees who contribute early in "
-            "the year receive any missing match after the plan year ends."),
+            "the year receive any missing match after the plan year ends."
+        ),
         RootCause.NOT_YET_ELIGIBLE: (
             f"Under your plan's rules, employees can join after {plan.eligibility.service_months} "
             f"month(s) of service, on the next {plan.eligibility.entry.value} entry date. "
-            "We'll confirm the exact date for this employee."),
+            "We'll confirm the exact date for this employee."
+        ),
         RootCause.AUTO_ENROLL_NOT_APPLIED: (
             "This employee should have been enrolled automatically. Our enrollment team is "
-            "reviewing the record and will confirm when deductions should start."),
+            "reviewing the record and will confirm when deductions should start."
+        ),
         RootCause.DEFERRAL_NOT_UPDATED_IN_PAYROLL: (
             "We have the new contribution rate on file, but the last payroll file still used the "
-            "previous rate. Please update the rate in your payroll system before the next run."),
+            "previous rate. Please update the rate in your payroll system before the next run."
+        ),
         RootCause.ELECTION_PROCESSING: (
             "Employees can change their contribution rate on the participant website. Changes "
-            "usually apply to the next payroll after they are submitted."),
+            "usually apply to the next payroll after they are submitted."
+        ),
         RootCause.LOAN_REPAYMENT_MISSING_IN_PAYROLL: (
             "The last payroll file did not include this employee's loan repayment. Please add "
-            "it to the next payroll so the loan stays current."),
+            "it to the next payroll so the loan stays current."
+        ),
         RootCause.LOAN_LIMIT_REACHED: (
             f"Your plan allows {plan.loans.max_outstanding} outstanding loan(s) at a time. The "
-            "employee can apply again once an existing loan is paid off."),
+            "employee can apply again once an existing loan is paid off."
+        ),
         RootCause.LOAN_GENERAL_INQUIRY: (
             "Our loan team will send the details for this request, including the current "
-            "payoff amount where relevant."),
+            "payoff amount where relevant."
+        ),
         RootCause.DISTRIBUTION_PROCESSING: (
             "The employee can request this through the participant website, or we can mail "
-            "the forms. Our distributions team will follow up with the next steps."),
+            "the forms. Our distributions team will follow up with the next steps."
+        ),
         RootCause.TESTING_INQUIRY: (
-            "Our compliance team will reply with the details and any deadlines that apply."),
+            "Our compliance team will reply with the details and any deadlines that apply."
+        ),
         RootCause.ACCESS_ISSUE: (
             "For security, we will verify this request by phone with an authorized plan "
-            "contact before making any access change. We will never ask for a password."),
+            "contact before making any access change. We will never ask for a password."
+        ),
     }
-    lines.append(body.get(cause, "Our team is reviewing your request.") if cause else
-                 "Our team is reviewing your request.")
+    lines.append(
+        body.get(cause, "Our team is reviewing your request.")
+        if cause
+        else "Our team is reviewing your request."
+    )
     if advice:
-        lines.append("We aren't able to give investment or tax advice. The employee may want "
-                     "to talk with a financial professional before deciding.")
+        lines.append(
+            "We aren't able to give investment or tax advice. The employee may want "
+            "to talk with a financial professional before deciding."
+        )
     lines += ["", "Best regards,", "Plan Services Team"]
     return "\n".join(lines)

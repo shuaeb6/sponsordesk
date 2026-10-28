@@ -37,7 +37,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "S", "PT"]
-ignore = ["S311"]  # stdlib random is intentional: synthetic data, not cryptography
+ignore = [
+    "S311",  # stdlib random is intentional: synthetic data, not cryptography
+    "E501",  # line length is owned by `ruff format`
+]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]

@@ -65,7 +65,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     S.store = Store(os.environ.get("WORKFLOW_DB", ":memory:"))
     S.quality = _quality(S.engine)
     logging.getLogger("sponsordesk").info(
-        '{"event": "startup", "seconds": %.2f}', time.perf_counter() - started)
+        '{"event": "startup", "seconds": %.2f}', time.perf_counter() - started
+    )
     yield
 
 
@@ -102,11 +103,17 @@ def list_tickets(
             continue
         sponsor = S.engine.sponsors[t.sponsor_id]
         subject, _, _ = S.engine.redact_ticket(t, "human_reviewer")
-        out.append({
-            "ticket_id": t.ticket_id, "subject": subject, "sponsor": sponsor.legal_name,
-            "created_at": t.created_at.isoformat(), "priority": t.priority.value,
-            "channel": t.channel.value, "status": st,
-        })
+        out.append(
+            {
+                "ticket_id": t.ticket_id,
+                "subject": subject,
+                "sponsor": sponsor.legal_name,
+                "created_at": t.created_at.isoformat(),
+                "priority": t.priority.value,
+                "channel": t.channel.value,
+                "status": st,
+            }
+        )
         if len(out) >= limit:
             break
     return out
@@ -119,8 +126,12 @@ def get_ticket(ticket_id: str) -> dict[str, Any]:
     subject, body, counts = S.engine.redact_ticket(t, "human_reviewer")
     return {
         "ticket_id": t.ticket_id,
-        "sponsor": {"id": sponsor.sponsor_id, "name": sponsor.legal_name,
-                    "tier": sponsor.service_tier, "rm": sponsor.relationship_manager},
+        "sponsor": {
+            "id": sponsor.sponsor_id,
+            "name": sponsor.legal_name,
+            "tier": sponsor.service_tier,
+            "rm": sponsor.relationship_manager,
+        },
         "created_at": t.created_at.isoformat(),
         "channel": t.channel.value,
         "priority": t.priority.value,
@@ -146,7 +157,8 @@ def metrics() -> dict[str, Any]:
         "by_status": by_status,
         "events": events,
         "approval_rate": round((events.get("approved", 0) + events.get("edited", 0)) / decided, 3)
-        if decided else None,
+        if decided
+        else None,
         "quality": S.quality,
     }
 
@@ -166,11 +178,18 @@ def triage(ticket_id: str) -> dict[str, Any]:
         raise HTTPException(409, "Ticket is closed.")
     proposal = S.engine.triage(ticket_id).as_dict()
     S.store.set(ticket_id, "pending_approval", proposal=proposal)
-    S.store.audit(ticket_id, "triage-engine", "proposed", {
-        "call_type": proposal["call_type"], "confidence": proposal["confidence"],
-        "team": proposal["team"], "root_cause": proposal["root_cause"],
-        "redactions": proposal["redaction_counts"],
-    })
+    S.store.audit(
+        ticket_id,
+        "triage-engine",
+        "proposed",
+        {
+            "call_type": proposal["call_type"],
+            "confidence": proposal["confidence"],
+            "team": proposal["team"],
+            "root_cause": proposal["root_cause"],
+            "redactions": proposal["redaction_counts"],
+        },
+    )
     return proposal
 
 
@@ -203,9 +222,15 @@ def decide(ticket_id: str, decision: Decision) -> dict[str, Any]:
         "reviewer": decision.reviewer,
     }
     S.store.set(ticket_id, "routed", decision=final)
-    S.store.audit(ticket_id, decision.reviewer, "edited" if edited else "approved", {
-        "team": final["team"], "misroute": final["team"] != proposal["team"],
-    })
+    S.store.audit(
+        ticket_id,
+        decision.reviewer,
+        "edited" if edited else "approved",
+        {
+            "team": final["team"],
+            "misroute": final["team"] != proposal["team"],
+        },
+    )
     return S.store.state(ticket_id)
 
 
@@ -262,5 +287,9 @@ def index() -> FileResponse:
 
 
 def run() -> None:
-    uvicorn.run("sponsordesk_console.main:app", host="0.0.0.0",  # noqa: S104
-                port=int(os.environ.get("PORT", "8000")), log_level="info")
+    uvicorn.run(
+        "sponsordesk_console.main:app",
+        host="0.0.0.0",  # noqa: S104
+        port=int(os.environ.get("PORT", "8000")),
+        log_level="info",
+    )

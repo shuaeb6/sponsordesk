@@ -19,8 +19,17 @@ def redactor() -> Redactor:
 
 def test_llm_destination_removes_every_value(redactor: Redactor) -> None:
     out = redactor.redact(TEXT, "llm").text
-    for raw in ("912-34-5678", "03/14/1988", "RK1234567890", "$41,220.10", "Maria Lopez",
-                "maria.lopez@acme.example", "(212) 555-0142", "00-1234567", "4321"):
+    for raw in (
+        "912-34-5678",
+        "03/14/1988",
+        "RK1234567890",
+        "$41,220.10",
+        "Maria Lopez",
+        "maria.lopez@acme.example",
+        "(212) 555-0142",
+        "00-1234567",
+        "4321",
+    ):
         assert raw not in out, raw
 
 
@@ -52,5 +61,7 @@ def test_unknown_class_falls_back_to_tokenize(tmp_path: Path) -> None:
 
 
 def test_pay_dates_are_not_mistaken_for_birth_dates(redactor: Redactor) -> None:
-    assert redactor.redact("The 7/10/2026 file was late.", "llm").text == \
-        "The 7/10/2026 file was late."
+    assert (
+        redactor.redact("The 7/10/2026 file was late.", "llm").text
+        == "The 7/10/2026 file was late."
+    )

@@ -24,8 +24,14 @@ class Detection:
 _PATTERNS: tuple[tuple[str, re.Pattern[str], int], ...] = (
     ("ssn", re.compile(r"(?<![\d-])\d{3}-\d{2}-\d{4}(?![\d-])"), 0),
     ("ssn", re.compile(r"(?i)\bSSN[:#\s]*(\d{9})\b"), 1),
-    ("ssn_last4", re.compile(r"(?i)\b(?:SSN|social)[\w\s]{0,20}?(?:ending|last four)"
-                             r"(?:\s+in|\s+of)?[:\s]+(\d{4})\b"), 1),
+    (
+        "ssn_last4",
+        re.compile(
+            r"(?i)\b(?:SSN|social)[\w\s]{0,20}?(?:ending|last four)"
+            r"(?:\s+in|\s+of)?[:\s]+(\d{4})\b"
+        ),
+        1,
+    ),
     ("ein", re.compile(r"(?<![\d-])\d{2}-\d{7}(?![\d-])"), 0),
     ("account_number", re.compile(r"\bRK\d{10}\b"), 0),
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), 0),
@@ -40,8 +46,7 @@ class Detector:
     def __init__(self, known_names: Iterable[str] = ()) -> None:
         names = sorted({n.strip() for n in known_names if n.strip()}, key=len, reverse=True)
         self._names = (
-            re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b")
-            if names else None
+            re.compile(r"\b(?:" + "|".join(re.escape(n) for n in names) + r")\b") if names else None
         )
 
     def detect(self, text: str) -> list[Detection]:

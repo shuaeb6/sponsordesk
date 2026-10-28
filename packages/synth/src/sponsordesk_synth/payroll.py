@@ -38,9 +38,22 @@ from sponsordesk_synth.entities import PERIODS_PER_YEAR, money
 from sponsordesk_synth.identifiers import IdentifierFactory
 
 COLUMNS = (
-    "employee_id", "ssn", "first_name", "last_name", "dob", "hire_date", "termination_date",
-    "status_code", "pay_date", "hours", "gross_pay", "pretax_deferral", "roth_deferral",
-    "employer_match", "loan_repayment", "ytd_pretax",
+    "employee_id",
+    "ssn",
+    "first_name",
+    "last_name",
+    "dob",
+    "hire_date",
+    "termination_date",
+    "status_code",
+    "pay_date",
+    "hours",
+    "gross_pay",
+    "pretax_deferral",
+    "roth_deferral",
+    "employer_match",
+    "loan_repayment",
+    "ytd_pretax",
 )
 
 HEADER_ALIASES = {
@@ -111,7 +124,9 @@ def _business_day_on_or_before(day: date) -> date:
     return day
 
 
-def pay_dates(frequency: PayrollFrequency, start: date, end: date, rng: random.Random) -> list[date]:
+def pay_dates(
+    frequency: PayrollFrequency, start: date, end: date, rng: random.Random
+) -> list[date]:
     dates: list[date] = []
     if frequency in (PayrollFrequency.WEEKLY, PayrollFrequency.BIWEEKLY):
         step = 7 if frequency is PayrollFrequency.WEEKLY else 14
@@ -125,8 +140,9 @@ def pay_dates(frequency: PayrollFrequency, start: date, end: date, rng: random.R
         while cursor <= end:
             next_month = date(cursor.year + cursor.month // 12, cursor.month % 12 + 1, 1)
             last = next_month - timedelta(days=1)
-            candidates = [last] if frequency is PayrollFrequency.MONTHLY \
-                else [cursor.replace(day=15), last]
+            candidates = (
+                [last] if frequency is PayrollFrequency.MONTHLY else [cursor.replace(day=15), last]
+            )
             dates.extend(
                 d for d in (_business_day_on_or_before(c) for c in candidates) if start <= d <= end
             )
@@ -160,8 +176,11 @@ def _row(
 ) -> dict[str, str]:
     periods = PERIODS_PER_YEAR[sponsor.payroll_frequency]
     on_leave = person.status is EmploymentStatus.LEAVE
-    gross = money(0) if on_leave else money(float(person.annual_salary) / periods
-                                              * rng.uniform(0.97, 1.05))
+    gross = (
+        money(0)
+        if on_leave
+        else money(float(person.annual_salary) / periods * rng.uniform(0.97, 1.05))
+    )
     pretax = money(gross * person.pretax_rate_pct / 100)
     roth = money(gross * person.roth_rate_pct / 100)
     ytd = min(
@@ -169,8 +188,12 @@ def _row(
         plan.annual_deferral_limit,
     )
     loan_payment = loan.payment_per_period if loan and not on_leave else money(0)
-    hours = {PayrollFrequency.WEEKLY: 40, PayrollFrequency.BIWEEKLY: 80,
-             PayrollFrequency.SEMIMONTHLY: 86.67, PayrollFrequency.MONTHLY: 173.33}
+    hours = {
+        PayrollFrequency.WEEKLY: 40,
+        PayrollFrequency.BIWEEKLY: 80,
+        PayrollFrequency.SEMIMONTHLY: 86.67,
+        PayrollFrequency.MONTHLY: 173.33,
+    }
     return {
         "employee_id": person.employee_id,
         "ssn": person.ssn,
@@ -185,7 +208,9 @@ def _row(
         "gross_pay": str(gross),
         "pretax_deferral": str(pretax),
         "roth_deferral": str(roth),
-        "employer_match": str(match_for(plan, gross, person.pretax_rate_pct + person.roth_rate_pct)),
+        "employer_match": str(
+            match_for(plan, gross, person.pretax_rate_pct + person.roth_rate_pct)
+        ),
         "loan_repayment": str(loan_payment),
         "ytd_pretax": str(ytd),
     }
@@ -212,15 +237,18 @@ def build_payroll_book(
         plan = plans[sponsor.sponsor_id]
         people = participants[sponsor.sponsor_id]
         loan_by_person = {
-            ln.participant_id: ln for ln in loans[sponsor.sponsor_id] if ln.status is LoanStatus.ACTIVE
+            ln.participant_id: ln
+            for ln in loans[sponsor.sponsor_id]
+            if ln.status is LoanStatus.ACTIVE
         }
         dates = pay_dates(sponsor.payroll_frequency, window_start, as_of - timedelta(days=1), rng)
         step = timedelta(days=365 // PERIODS_PER_YEAR[sponsor.payroll_frequency])
         for position, pay_date in enumerate(dates):
             is_latest = position == len(dates) - 1
             if not is_latest and rng.random() < 0.03:
-                expected.append(ExpectedPayroll(sponsor_id=sponsor.sponsor_id, pay_date=pay_date,
-                                                file_id=None))
+                expected.append(
+                    ExpectedPayroll(sponsor_id=sponsor.sponsor_id, pay_date=pay_date, file_id=None)
+                )
                 continue
             counter += 1
             file_id = f"PF-{counter:05d}"
@@ -238,13 +266,20 @@ def build_payroll_book(
                 time(rng.randint(7, 19), rng.randint(0, 59)),
             )
             draft = DraftFile(
-                file_id=file_id, sponsor=sponsor, plan=plan, pay_date=pay_date,
-                period_start=period_start, period_end=period_end, received_at=received, rows=rows,
+                file_id=file_id,
+                sponsor=sponsor,
+                plan=plan,
+                pay_date=pay_date,
+                period_start=period_start,
+                period_end=period_end,
+                received_at=received,
+                rows=rows,
                 pending_review=is_latest and rng.random() < 0.25,
             )
             drafts.append(draft)
-            expected.append(ExpectedPayroll(sponsor_id=sponsor.sponsor_id, pay_date=pay_date,
-                                            file_id=file_id))
+            expected.append(
+                ExpectedPayroll(sponsor_id=sponsor.sponsor_id, pay_date=pay_date, file_id=file_id)
+            )
 
     injector = ErrorInjector(rng, participants, loans, ids)
     for draft in drafts:
@@ -285,8 +320,12 @@ class ErrorInjector:
             return None
         row_number, emp, detail = result
         error = InjectedError(
-            file_id=draft.file_id, kind=kind, severity=ERROR_SEVERITY[kind],
-            row_number=row_number, employee_id=emp, detail=detail,
+            file_id=draft.file_id,
+            kind=kind,
+            severity=ERROR_SEVERITY[kind],
+            row_number=row_number,
+            employee_id=emp,
+            detail=detail,
         )
         draft.errors.append(error)
         if emp:
@@ -295,11 +334,13 @@ class ErrorInjector:
 
     # Each handler returns (1-based data row number, employee_id, detail) or None.
 
-    def _pick(self, draft: DraftFile, employee_id: str | None,
-              predicate: object = None) -> tuple[int, dict[str, str]] | None:
+    def _pick(
+        self, draft: DraftFile, employee_id: str | None, predicate: object = None
+    ) -> tuple[int, dict[str, str]] | None:
         touched = self._touched.get(draft.file_id, set())
         candidates = [
-            (i, r) for i, r in enumerate(draft.rows)
+            (i, r)
+            for i, r in enumerate(draft.rows)
             if (employee_id is None or r["employee_id"] == employee_id)
             and (employee_id is not None or r["employee_id"] not in touched)
             and (predicate is None or (callable(predicate) and predicate(r)))
@@ -314,8 +355,9 @@ class ErrorInjector:
         row["ssn"] = ""
         return i + 1, row["employee_id"], "SSN field is blank"
 
-    def _inject_invalid_ssn_format(self, draft: DraftFile, emp: str | None
-                                   ) -> tuple[int, str, str] | None:
+    def _inject_invalid_ssn_format(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp, lambda r: bool(r["ssn"]))
         if not picked:
             return None
@@ -323,8 +365,9 @@ class ErrorInjector:
         row["ssn"] = row["ssn"][:-1]
         return i + 1, row["employee_id"], "SSN has 8 digits"
 
-    def _inject_duplicate_row(self, draft: DraftFile, emp: str | None
-                              ) -> tuple[int, str, str] | None:
+    def _inject_duplicate_row(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp)
         if not picked:
             return None
@@ -333,8 +376,9 @@ class ErrorInjector:
         draft.rows.append(dict(row))
         return len(draft.rows), row["employee_id"], f"duplicates data row {i + 1}"
 
-    def _inject_deferral_exceeds_gross(self, draft: DraftFile, emp: str | None
-                                       ) -> tuple[int, str, str] | None:
+    def _inject_deferral_exceeds_gross(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp, lambda r: Decimal(r["gross_pay"]) > 0)
         if not picked:
             return None
@@ -342,8 +386,9 @@ class ErrorInjector:
         row["pretax_deferral"] = str(money(Decimal(row["gross_pay"]) * Decimal("1.35")))
         return i + 1, row["employee_id"], "pre-tax deferral is greater than gross pay"
 
-    def _inject_negative_amount(self, draft: DraftFile, emp: str | None
-                                ) -> tuple[int, str, str] | None:
+    def _inject_negative_amount(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp, lambda r: Decimal(r["employer_match"]) > 0)
         if not picked:
             return None
@@ -351,21 +396,26 @@ class ErrorInjector:
         row["employer_match"] = f"-{row['employer_match']}"
         return i + 1, row["employee_id"], "employer match is negative"
 
-    def _inject_deferral_rate_mismatch(self, draft: DraftFile, emp: str | None
-                                       ) -> tuple[int, str, str] | None:
+    def _inject_deferral_rate_mismatch(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp, lambda r: Decimal(r["pretax_deferral"]) > 0)
         if not picked:
             return None
         i, row = picked
         person = self._person(draft, row["employee_id"])
         elected = person.pending_rate_change_pct or person.pretax_rate_pct
-        stale = person.pretax_rate_pct if person.pending_rate_change_pct else max(
-            Decimal(1), person.pretax_rate_pct - self._rng.choice((1, 2, 3)))
+        stale = (
+            person.pretax_rate_pct
+            if person.pending_rate_change_pct
+            else max(Decimal(1), person.pretax_rate_pct - self._rng.choice((1, 2, 3)))
+        )
         row["pretax_deferral"] = str(money(Decimal(row["gross_pay"]) * stale / 100))
         return i + 1, row["employee_id"], f"deferral reflects {stale}% but election is {elected}%"
 
-    def _inject_match_miscalculated(self, draft: DraftFile, emp: str | None
-                                    ) -> tuple[int, str, str] | None:
+    def _inject_match_miscalculated(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         if not draft.plan.employer_match:
             return None
         picked = self._pick(draft, emp, lambda r: Decimal(r["employer_match"]) > 0)
@@ -375,8 +425,9 @@ class ErrorInjector:
         row["employer_match"] = str(money(Decimal(row["employer_match"]) / 2))
         return i + 1, row["employee_id"], "employer match is half of the plan formula"
 
-    def _inject_missing_loan_repayment(self, draft: DraftFile, emp: str | None
-                                       ) -> tuple[int, str, str] | None:
+    def _inject_missing_loan_repayment(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp, lambda r: Decimal(r["loan_repayment"]) > 0)
         if not picked:
             return None
@@ -384,11 +435,14 @@ class ErrorInjector:
         row["loan_repayment"] = "0.00"
         return i + 1, row["employee_id"], "active loan but no repayment withheld"
 
-    def _inject_terminated_with_contribution(self, draft: DraftFile, emp: str | None
-                                             ) -> tuple[int, str, str] | None:
+    def _inject_terminated_with_contribution(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         termed = [
-            p for p in self._participants[draft.sponsor.sponsor_id]
-            if p.termination_date and p.termination_date < draft.period_start
+            p
+            for p in self._participants[draft.sponsor.sponsor_id]
+            if p.termination_date
+            and p.termination_date < draft.period_start
             and draft.row_for(p.employee_id) is None
             and (emp is None or p.employee_id == emp)
         ]
@@ -399,23 +453,35 @@ class ErrorInjector:
         if template is None:
             return None
         gross = money(person.annual_salary / 26)
-        template.update({
-            "employee_id": person.employee_id, "ssn": person.ssn,
-            "first_name": person.first_name, "last_name": person.last_name,
-            "dob": person.dob.isoformat(), "hire_date": person.hire_date.isoformat(),
-            "termination_date": person.termination_date.isoformat()
-            if person.termination_date else "",
-            "status_code": "T", "gross_pay": str(gross),
-            "pretax_deferral": str(money(gross * Decimal("0.05"))), "roth_deferral": "0.00",
-            "employer_match": str(match_for(draft.plan, gross, Decimal(5))),
-            "loan_repayment": "0.00",
-        })
+        template.update(
+            {
+                "employee_id": person.employee_id,
+                "ssn": person.ssn,
+                "first_name": person.first_name,
+                "last_name": person.last_name,
+                "dob": person.dob.isoformat(),
+                "hire_date": person.hire_date.isoformat(),
+                "termination_date": person.termination_date.isoformat()
+                if person.termination_date
+                else "",
+                "status_code": "T",
+                "gross_pay": str(gross),
+                "pretax_deferral": str(money(gross * Decimal("0.05"))),
+                "roth_deferral": "0.00",
+                "employer_match": str(match_for(draft.plan, gross, Decimal(5))),
+                "loan_repayment": "0.00",
+            }
+        )
         draft.rows.append(template)
-        return len(draft.rows), person.employee_id, "contribution for employee terminated " \
-            "before the pay period"
+        return (
+            len(draft.rows),
+            person.employee_id,
+            "contribution for employee terminated before the pay period",
+        )
 
-    def _inject_over_annual_limit(self, draft: DraftFile, emp: str | None
-                                  ) -> tuple[int, str, str] | None:
+    def _inject_over_annual_limit(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp, lambda r: Decimal(r["pretax_deferral"]) > 0)
         if not picked:
             return None
@@ -424,8 +490,9 @@ class ErrorInjector:
         row["ytd_pretax"] = str(over)
         return i + 1, row["employee_id"], "year-to-date pre-tax deferrals exceed the annual limit"
 
-    def _inject_unknown_employee(self, draft: DraftFile, emp: str | None
-                                 ) -> tuple[int, str, str] | None:
+    def _inject_unknown_employee(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         if emp is not None or not draft.rows:
             return None
         row = dict(self._rng.choice(draft.rows))
@@ -433,13 +500,19 @@ class ErrorInjector:
         new_id = row["employee_id"]
         while new_id in known:
             new_id = f"E{self._rng.randint(10000, 99999)}"
-        row.update({"employee_id": new_id, "ssn": self._ids.ssn(),
-                    "hire_date": (draft.period_end - timedelta(days=5)).isoformat()})
+        row.update(
+            {
+                "employee_id": new_id,
+                "ssn": self._ids.ssn(),
+                "hire_date": (draft.period_end - timedelta(days=5)).isoformat(),
+            }
+        )
         draft.rows.append(row)
         return len(draft.rows), new_id, "employee is not on the plan census"
 
-    def _inject_pay_date_mismatch(self, draft: DraftFile, emp: str | None
-                                  ) -> tuple[int, str, str] | None:
+    def _inject_pay_date_mismatch(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[int, str, str] | None:
         picked = self._pick(draft, emp)
         if not picked:
             return None
@@ -447,8 +520,9 @@ class ErrorInjector:
         row["pay_date"] = (draft.pay_date - timedelta(days=14)).isoformat()
         return i + 1, row["employee_id"], "row pay date does not match the file pay date"
 
-    def _inject_header_mismatch(self, draft: DraftFile, emp: str | None
-                                ) -> tuple[None, None, str] | None:
+    def _inject_header_mismatch(
+        self, draft: DraftFile, emp: str | None
+    ) -> tuple[None, None, str] | None:
         if draft.has_kind(PayrollErrorKind.HEADER_MISMATCH):
             return None
         canonical = self._rng.choice(sorted(HEADER_ALIASES))
@@ -456,8 +530,9 @@ class ErrorInjector:
         return None, None, f"column '{canonical}' sent as '{HEADER_ALIASES[canonical]}'"
 
     def _person(self, draft: DraftFile, employee_id: str) -> Participant:
-        return next(p for p in self._participants[draft.sponsor.sponsor_id]
-                    if p.employee_id == employee_id)
+        return next(
+            p for p in self._participants[draft.sponsor.sponsor_id] if p.employee_id == employee_id
+        )
 
 
 # --- Finalizing --------------------------------------------------------------------

@@ -101,8 +101,12 @@ def test_injected_errors_are_observable_in_csv(data: Dataset) -> None:
         header = next(reader)
         rows = [dict(zip(header, r, strict=True)) for r in reader]
         if e.kind is PayrollErrorKind.HEADER_MISMATCH:
-            assert "pretax_deferral" not in header or "employer_match" not in header \
-                or "loan_repayment" not in header or "gross_pay" not in header
+            assert (
+                "pretax_deferral" not in header
+                or "employer_match" not in header
+                or "loan_repayment" not in header
+                or "gross_pay" not in header
+            )
             continue
         assert e.row_number is not None
         row = rows[e.row_number - 1]
@@ -118,4 +122,5 @@ def test_injected_errors_are_observable_in_csv(data: Dataset) -> None:
 def test_no_label_data_in_tickets(data: Dataset) -> None:
     for t in data.tickets:
         dumped = t.model_dump_json()
-        assert "call_type" not in dumped and "root_cause" not in dumped
+        assert "call_type" not in dumped
+        assert "root_cause" not in dumped

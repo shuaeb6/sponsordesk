@@ -84,9 +84,7 @@ def build_sponsors(
                 industry=industry,
                 state=rng.choice(vocab.STATES),
                 employee_count=rng.choice((24, 38, 55, 80, 120, 175, 260, 410, 640, 950)),
-                payroll_frequency=rng.choices(
-                    list(PayrollFrequency), weights=(15, 50, 25, 10)
-                )[0],
+                payroll_frequency=rng.choices(list(PayrollFrequency), weights=(15, 50, 25, 10))[0],
                 payroll_provider=rng.choice(vocab.PAYROLL_PROVIDERS),
                 service_tier=rng.choice(vocab.SERVICE_TIERS),
                 plan_id=f"PL-{2001 + index}",
@@ -133,8 +131,12 @@ def build_plan(rng: random.Random, ids: IdentifierFactory, sponsor: Sponsor) -> 
         testing = TestingStatus.EXEMPT_SAFE_HARBOR
     else:
         testing = rng.choices(
-            (TestingStatus.PASSED, TestingStatus.PENDING, TestingStatus.FAILED_ADP,
-             TestingStatus.FAILED_ACP),
+            (
+                TestingStatus.PASSED,
+                TestingStatus.PENDING,
+                TestingStatus.FAILED_ADP,
+                TestingStatus.FAILED_ACP,
+            ),
             weights=(55, 25, 12, 8),
         )[0]
 
@@ -167,7 +169,8 @@ def build_plan(rng: random.Random, ids: IdentifierFactory, sponsor: Sponsor) -> 
         ],
         match_true_up=bool(formula) and rng.random() < 0.5,
         vesting_schedule=(
-            "immediate" if safe_harbor
+            "immediate"
+            if safe_harbor
             else rng.choice(("immediate", "3-year cliff", "6-year graded", "2-6 year graded"))
         ),
         loans=LoanRules(
@@ -190,11 +193,16 @@ def build_plan(rng: random.Random, ids: IdentifierFactory, sponsor: Sponsor) -> 
 
 
 _SALARY_BANDS = {
-    "Technology": (70_000, 240_000), "Professional Services": (55_000, 210_000),
-    "Healthcare": (38_000, 190_000), "Hospitality": (28_000, 85_000),
-    "Retail": (29_000, 90_000), "Education": (36_000, 110_000),
-    "Nonprofit": (34_000, 105_000), "Construction": (42_000, 140_000),
-    "Manufacturing": (38_000, 125_000), "Logistics": (36_000, 120_000),
+    "Technology": (70_000, 240_000),
+    "Professional Services": (55_000, 210_000),
+    "Healthcare": (38_000, 190_000),
+    "Hospitality": (28_000, 85_000),
+    "Retail": (29_000, 90_000),
+    "Education": (36_000, 110_000),
+    "Nonprofit": (34_000, 105_000),
+    "Construction": (42_000, 140_000),
+    "Manufacturing": (38_000, 125_000),
+    "Logistics": (36_000, 120_000),
 }
 
 
@@ -226,13 +234,16 @@ def build_participants(
 
         roll = rng.random()
         status = (
-            EmploymentStatus.ACTIVE if roll < 0.88
-            else EmploymentStatus.TERMINATED if roll < 0.97
+            EmploymentStatus.ACTIVE
+            if roll < 0.88
+            else EmploymentStatus.TERMINATED
+            if roll < 0.97
             else EmploymentStatus.LEAVE
         )
         termination = (
             _random_date(rng, max(hire, as_of - timedelta(days=180)), as_of - timedelta(days=5))
-            if status is EmploymentStatus.TERMINATED else None
+            if status is EmploymentStatus.TERMINATED
+            else None
         )
 
         recent = (as_of - hire).days < 130
@@ -244,10 +255,16 @@ def build_participants(
             enrolled = rng.random() < 0.74
 
         if enrolled:
-            pretax = pct(rng.choices((1, 2, 3, 4, 5, 6, 8, 10, 12, 15),
-                                     weights=(3, 4, 12, 10, 14, 16, 12, 10, 6, 3))[0])
-            roth = pct(rng.choice((1, 2, 3, 5))) if plan.roth_allowed and rng.random() < 0.25 \
+            pretax = pct(
+                rng.choices(
+                    (1, 2, 3, 4, 5, 6, 8, 10, 12, 15), weights=(3, 4, 12, 10, 14, 16, 12, 10, 6, 3)
+                )[0]
+            )
+            roth = (
+                pct(rng.choice((1, 2, 3, 5)))
+                if plan.roth_allowed and rng.random() < 0.25
                 else pct(0)
+            )
         else:
             pretax = roth = pct(0)
 
@@ -356,7 +373,9 @@ def build_loans(
     return loans
 
 
-def _amortized_payment(principal: Decimal, annual_rate: Decimal, periods: int, years: int) -> Decimal:
+def _amortized_payment(
+    principal: Decimal, annual_rate: Decimal, periods: int, years: int
+) -> Decimal:
     r = float(annual_rate) / periods
     n = periods * years
     return money(float(principal) * r / (1 - (1 + r) ** -n))
